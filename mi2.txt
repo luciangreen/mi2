@@ -1,0 +1,308 @@
+Program Requirements: mi.pl
+
+Mathematical Induction and Recurrence Compression for Prolog
+
+1. Purpose
+
+The purpose of mi.pl is to analyse Prolog predicates, detect recursive structure, extract exact recurrence relations, and transform eligible recursive definitions into equivalent flattened or closed-form representations where correctness can be justified by symbolic reasoning and mathematical induction.
+
+The program must operate as a source-to-source analysis and transformation tool for Prolog. It must not merely fit output samples to guessed polynomials, but must instead derive recurrence equations from clause semantics, solve them where possible, and emit rewritten predicates together with proof notes, assumptions, and validation tests.
+
+2. Objectives
+
+The system shall provide a pipeline that reads Prolog clauses, identifies recursive predicates, classifies the recursion, extracts base and inductive cases, decomposes recursive definitions into structural and combinator steps, derives recurrence equations, simplifies or solves those recurrences, and emits transformed Prolog code plus machine-readable analysis artefacts.
+
+The system shall support the distinction between structural progression such as N -> N-1 or list tail reduction and combinator progression such as +, *, list construction, aggregation, or accumulator update. The system shall be able to represent these as separate transformation stages so that a predicate like summation over 1..N can be analysed as both a decreasing-domain recursion and an additive fold.
+
+3. Scope
+
+The first production version of mi.pl shall focus on deterministic, first-order, pure or mostly pure Prolog predicates over numeric and list domains. It shall support predicates with one principal recursive argument and one principal output argument, including direct recursion, tail recursion, simple nested recursion, and accumulator-based recursion where the accumulator relation can be normalised.
+
+The first version shall not be required to fully solve mutually recursive predicates, nondeterministic search predicates, predicates using cuts in semantically essential ways, predicates depending on impure I/O, or predicates whose outputs depend on opaque foreign predicates. Such predicates shall be detected and reported as unsupported or partially analysable rather than transformed unsafely.
+
+4. Functional Overview
+
+The program shall implement the following high-level phases:
+	1.	source parsing and clause normalisation,
+	2.	predicate dependency analysis,
+	3.	recursion detection and classification,
+	4.	base-case and inductive-step extraction,
+	5.	structural decomposition of recursive transitions,
+	6.	combinator decomposition of result construction,
+	7.	recurrence construction,
+	8.	symbolic recurrence solving or bounded simplification,
+	9.	induction-based verification,
+	10.	code generation, proof generation, and test generation.
+
+Each phase shall preserve traceable metadata so that every derived formula or rewrite can be linked back to the original source clauses and intermediate representations.
+
+5. Core Functional Requirements
+
+5.1 Parsing and Normalisation
+
+The system shall read a Prolog source file and parse all clauses, facts, and relevant declarations required for analysis. It shall normalise each predicate into an internal representation that separates head, guard goals, recursive calls, arithmetic updates, constructor applications, and terminal result expressions.
+
+The system shall preserve source locations where available. The internal representation shall distinguish between semantically meaningful clauses and directives that must not be executed during analysis.
+
+The system shall expose an interface such as parse_file_clauses/2 or equivalent that returns normalised clause records rather than raw terms only.
+
+5.2 Predicate and Dependency Analysis
+
+The system shall construct a call graph of predicates defined in the analysed file. It shall identify direct recursion, mutual recursion, nested recursion, structural recursion on integers, and structural recursion on lists.
+
+The system shall classify recursive predicates into categories including but not limited to tail recursive, non-tail recursive, accumulator-based, nested recursive, divide-and-conquer recursive, and unsupported recursive forms. Each classification shall include the evidence used to assign it.
+
+5.3 Exact Recursion Detection
+
+The system shall identify recursive calls by matching the called predicate against the current predicate indicator rather than by merely searching for repeated functors anywhere in a term. Recursive call detection shall distinguish between direct calls, calls embedded in arithmetic or constructor contexts, and unrelated terms containing the same functor name.
+
+The system shall support detection of multiple recursive calls in one clause body and shall record their order, syntactic context, argument transformation, and result-use context.
+
+5.4 Base-Case Extraction
+
+The system shall identify base clauses and derive explicit base conditions and base outputs. For numeric recursion this includes clauses such as N = 0 or N =< 1; for list recursion this includes clauses such as [].
+
+The system shall represent base cases independently from recursive cases. It shall not infer a closed form unless at least one valid base case and one valid inductive transition are available.
+
+5.5 Structural Decomposition
+
+The system shall decompose recursion into the structural domain step and the result-combination step. For numeric recursion this includes identifying transformations such as N1 is N-1, N1 is N-2, or N1 is N//2. For list recursion this includes identifying structural decomposition such as [H|T] -> T.
+
+The system shall provide an explicit representation such as:
+	•	domain transition,
+	•	recursive subproblem,
+	•	local contribution,
+	•	result-combination operator.
+
+For a summation predicate, the analysis shall be able to represent the recursion as a decreasing domain over N plus an addition-based combination of the recursive result and the current term.
+
+5.6 Combinator Decomposition
+
+The system shall identify how the recursive result is used to produce the final result. It shall distinguish additive, multiplicative, affine, constructor-based, and accumulator-update patterns. It shall identify whether the recursive result appears linearly, nonlinearly, once, or multiple times.
+
+The system shall explicitly separate domain generation from aggregation. This requirement is critical for determining whether a predicate truly computes a fold over 1..N, a product, a list build, or another structural recursion pattern.
+
+5.7 Recurrence Construction
+
+The system shall construct exact symbolic recurrence equations from the normalised recursive clauses. These recurrence equations shall be expressed in a form that can be inspected and solved independently of source text.
+
+For example, if a predicate is recognised as summation over N, the recurrence shall be recorded in a form equivalent to:
+
+S(0) = 0
+S(N) = S(N-1) + N
+
+If a predicate is recognised as factorial, the recurrence shall be recorded in a form equivalent to:
+
+F(0) = 1
+F(N) = N * F(N-1)
+
+The system shall not replace recurrence extraction with trace-only coefficient fitting except as a fallback exploratory mode clearly labelled as heuristic.
+
+5.8 Symbolic Solving
+
+The system shall include a symbolic recurrence solver for supported recurrence classes. The first version shall support:
+	•	constant recurrences,
+	•	linear affine recurrences,
+	•	first-order additive recurrences,
+	•	first-order multiplicative recurrences,
+	•	simple polynomial-summation recurrences,
+	•	accumulator-normalisable tail recursions.
+
+Where symbolic solution is not possible, the system may perform bounded simplification or derive a non-closed recurrence summary. In such cases it shall state the limitation explicitly.
+
+5.9 Gaussian Elimination Use
+
+Gaussian elimination may be used only where the derived problem is genuinely a linear algebra problem, such as solving unknown coefficients of a candidate polynomial after the recurrence class has already justified a polynomial basis. Gaussian elimination shall not be the primary mechanism for claiming semantic equivalence of recursive predicates.
+
+If Gaussian elimination is used, the system shall state:
+	•	the chosen basis,
+	•	why that basis is justified,
+	•	the equations supplied,
+	•	whether the system is exact, overdetermined, or underdetermined,
+	•	whether the solution is unique.
+
+5.10 Induction-Based Verification
+
+For every emitted closed form or transformed recursive compression, the system shall generate a proof sketch based on mathematical induction or structural induction. The proof artefact shall include:
+	•	theorem statement,
+	•	domain assumptions,
+	•	base-case proof,
+	•	inductive hypothesis,
+	•	inductive-step derivation,
+	•	conclusion.
+
+A transformation shall not be labelled “proved” unless the induction phase succeeds. If only empirical or heuristic evidence exists, the result shall be labelled as “candidate formula” or “unverified simplification.”
+
+5.11 Rewrite Generation
+
+The system shall emit rewritten Prolog predicates in one of the following forms:
+	•	exact closed-form replacement,
+	•	helper predicate plus simplified main predicate,
+	•	recurrence summary predicate,
+	•	verified equivalent tail-recursive or accumulator form,
+	•	analysis-only output where no safe rewrite exists.
+
+Generated code shall be valid Prolog and shall preserve the original predicate signature unless explicitly configured otherwise.
+
+5.12 Proof and Test Generation
+
+The system shall emit proof notes and unit tests for every transformed predicate. Generated tests shall include:
+	•	base-case tests,
+	•	small finite-domain equivalence tests,
+	•	random sample tests within configured bounds for deterministic predicates,
+	•	regression tests for unsupported-but-analysed cases.
+
+Tests shall compare original and transformed predicates whenever the original can be safely loaded in an isolated environment.
+
+6. Non-Functional Requirements
+
+6.1 Correctness
+
+Correctness shall take precedence over aggressive rewriting. If the analyser cannot prove equivalence or cannot safely classify a recurrence, it shall decline transformation and provide a diagnostic explanation.
+
+6.2 Explainability
+
+Every major output shall be accompanied by an explainable artefact showing how the result was derived. Internal representations should be serialisable for debugging and academic inspection.
+
+6.3 Modularity
+
+The program shall be split into clear analysis modules such as parsing, normalisation, recursion classification, recurrence extraction, solving, proof generation, and code emission. Predicates shall have narrow responsibilities and deterministic outputs wherever feasible.
+
+6.4 Extensibility
+
+The architecture shall support future addition of new recurrence solvers, new induction schemas, mutual recursion analysis, and support for more complex algebraic simplifications.
+
+6.5 Safety
+
+The analyser shall avoid asserting arbitrary clauses into the global user database unless this is done in a controlled sandbox. Temporary loading used for validation shall be isolated and reversible.
+
+6.6 Performance
+
+The first version shall be efficient enough for small to medium educational or research examples. It shall avoid exponential term traversal where indexing or memoisation can be used.
+
+7. Internal Representations
+
+The system shall define explicit internal structures for:
+	•	clause records,
+	•	recursive call records,
+	•	base-case records,
+	•	domain transitions,
+	•	combinator expressions,
+	•	recurrence equations,
+	•	proof obligations,
+	•	rewrite plans.
+
+A recursive clause representation shall include at least the predicate indicator, head arguments, recursive subcalls, argument transitions, arithmetic guards, and result-construction expression.
+
+A recurrence representation shall separate the domain variable from the output function symbol and the recurrence operator.
+
+8. Modes of Operation
+
+The system shall support the following operation modes.
+
+8.1 Analysis Mode
+
+This mode shall parse and analyse predicates, then output classification, recurrences, proof obligations, and feasibility of transformation without rewriting any source.
+
+8.2 Verified Rewrite Mode
+
+This mode shall emit transformed code only for predicates that have passed recurrence extraction and induction verification.
+
+8.3 Heuristic Discovery Mode
+
+This mode may use tracing, bounded execution, sample fitting, or Gaussian elimination to propose candidate formulas when exact symbolic extraction is unavailable. Outputs in this mode shall be marked heuristic and shall never be presented as proved results.
+
+8.4 Comparison Mode
+
+This mode shall compare original and transformed predicates over a bounded input domain and report mismatches, coverage, and confidence.
+
+9. Required Predicate Interfaces
+
+The implementation shall expose a documented public API. The exact names may vary, but equivalent functionality shall exist.
+
+The parser interface shall include predicates equivalent to process_file/2, parse_file_clauses/2, and parse_clauses/2.
+
+The analysis interface shall include predicates equivalent to analyze_predicates/2, detect_recursive/2, classify_recursion_type/3, extract_base_cases/2, extract_inductive_steps/2, and build_recurrence/2.
+
+The solving interface shall include predicates equivalent to solve_recurrence/2, derive_closed_form/2, and verify_by_induction/3.
+
+The emission interface shall include predicates equivalent to emit_rewritten/4, write_proof_notes/3, and write_test_cases/3.
+
+The heuristic interface shall include predicates equivalent to trace_predicate_execution/4, build_equation_system/2, and gaussian_eliminate_system/2, but these must be clearly documented as auxiliary rather than core proof machinery.
+
+10. Unsupported and Partially Supported Cases
+
+The system shall explicitly detect and report cases such as:
+	•	mutually recursive predicate sets,
+	•	nondeterministic predicates with multiple answers,
+	•	cuts that affect logical meaning,
+	•	impure predicates and side effects,
+	•	non-numeric opaque built-ins,
+	•	higher-order calls through call/N,
+	•	predicates whose recursive descent is not structurally decreasing,
+	•	predicates with multiple interacting recursive arguments beyond configured support.
+
+The report shall state whether the case is unsupported, partially analysed, or handled heuristically.
+
+11. Validation Requirements
+
+A transformation shall be considered successful only if all of the following hold:
+	•	the predicate was parsed and classified successfully,
+	•	at least one valid base case was identified,
+	•	the recursive transition was extracted,
+	•	the recurrence was built,
+	•	the recurrence was solved or safely simplified,
+	•	the resulting formula or rewrite passed induction verification or bounded equivalence testing as configured.
+
+If induction verification fails but bounded testing succeeds, the result shall be labelled as empirically consistent rather than proved.
+
+12. Output Requirements
+
+The program shall generate:
+	•	a rewritten Prolog file where applicable,
+	•	a proof notes file,
+	•	a diagnostics report,
+	•	generated tests,
+	•	optional machine-readable JSON or Prolog term summaries for tooling.
+
+The diagnostics report shall include clause classifications, recurrence extraction summaries, solver decisions, proof outcomes, unsupported features encountered, and whether Gaussian elimination was used.
+
+13. Design Constraints
+
+The implementation shall be written in Prolog and remain portable where possible across common Prolog systems, with SWI-Prolog as the primary target unless otherwise specified. Arithmetic reasoning may rely on standard arithmetic predicates, but symbolic manipulation should remain in Prolog terms rather than external CAS dependencies in the first version.
+
+The implementation shall not confuse symbolic terms with executable goals. It shall avoid shallow functor-name matching where exact predicate identity and role-sensitive analysis are required.
+
+14. Acceptance Criteria
+
+mi.pl shall be accepted when it can successfully analyse and process representative examples such as:
+	•	summation from 1..N,
+	•	factorial,
+	•	length of a list,
+	•	reverse with accumulator normalisation,
+	•	simple arithmetic progression recurrences,
+	•	selected nested recursive examples that are either transformed correctly or rejected with correct diagnostics.
+
+For the summation example, acceptance requires the system to identify:
+	•	the base case,
+	•	the predecessor step,
+	•	the additive combination step,
+	•	the recurrence S(N)=S(N-1)+N,
+	•	the closed form N*(N+1)/2,
+	•	an induction proof sketch,
+	•	generated tests showing equivalence over a bounded domain.
+
+15. Future Enhancements
+
+Future versions may support:
+	•	mutual recursion,
+	•	richer algebraic simplification,
+	•	multivariate recurrences,
+	•	divide-and-conquer recurrence solving,
+	•	recurrence classification using term rewriting,
+	•	integration with Starlog or specification-driven program synthesis,
+	•	proof object export in structured form.
+
+16. Summary
+
+mi.pl shall be a Prolog program analysis and transformation tool that derives verified recursion compressions through exact recurrence extraction and induction-based reasoning. Trace-based sampling and Gaussian elimination may assist exploration, but they shall not substitute for semantic extraction and proof. The system must distinguish structural descent from result combination, so that recursive patterns such as counting through 1..N and combining by + are analysed as separate functional components rather than being collapsed into a single guessed polynomial.
