@@ -1,5 +1,5 @@
 % ============================================================
-% mi.pl  –  Mathematical Induction and Recurrence Compression
+% mi.pl  -  Mathematical Induction and Recurrence Compression
 %           for Prolog  (version 1.0)
 %
 % Primary target: SWI-Prolog 9.x
@@ -11,10 +11,10 @@
 %   rewrites, justified by mathematical induction.
 %
 % Modes of operation:
-%   analysis         – classify and analyse; no rewrite emitted
-%   verified_rewrite – emit rewritten Prolog only when proof succeeds
-%   heuristic        – propose candidate formulas via sampling/Gaussian
-%   comparison       – bounded equivalence check
+%   analysis         - classify and analyse; no rewrite emitted
+%   verified_rewrite - emit rewritten Prolog only when proof succeeds
+%   heuristic        - propose candidate formulas via sampling/Gaussian
+%   comparison       - bounded equivalence check
 %
 % Usage:
 %   ?- process_file('example.pl', Report).
@@ -930,7 +930,7 @@ analyse_predicate_group(pred_group(F/A, NormClauses), Analysis) :-
                                   Recurrence, Solution, Proof, pending_rewrite).
 
 % ============================================================
-% SECTION 11: Heuristic Mode  (auxiliary – not core proof machinery)
+% SECTION 11: Heuristic Mode  (auxiliary - not core proof machinery)
 % ============================================================
 
 %% trace_predicate_execution(+Indicator, +Inputs, +Module, -Trace)

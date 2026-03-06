@@ -1,4 +1,4 @@
-% test_mi.pl  –  PLUnit test suite for mi.pl
+% test_mi.pl  -  PLUnit test suite for mi.pl
 %
 % Run with:
 %   swipl -g "run_tests" -t halt test_mi.pl
